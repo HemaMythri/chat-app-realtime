@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Chat App</title>
+  <style>
+    body { font-family: Arial; margin: 20px; }
+
+    #messages {
+      border: 1px solid #ccc;
+      height: 250px;
+      overflow-y: auto;
+      padding: 10px;
+      list-style: none;
+    }
+
+    #users {
+      border: 1px solid #ccc;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+
+    .time {
+      color: gray;
+      font-size: 12px;
+      margin-left: 5px;
+    }
+  </style>
+</head>
+
+<body>
+
+<h2>Real-Time Chat</h2>
+
+<input id="username" placeholder="Enter username" />
+<br><br>
+
+<input id="room" placeholder="Enter room" />
+<button onclick="joinRoom()">Join Room</button>
+
+<h3 id="roomTitle"></h3>
+
+<h4>Online Users</h4>
+<ul id="users"></ul>
+
+<br>
+
+<input id="message" placeholder="Type message..." oninput="handleTyping()" />
+<button onclick="sendMessage()">Send</button>
+
+<p id="typingStatus" style="color: green;"></p>
+
+<ul id="messages"></ul>
+
+<script src="/socket.io/socket.io.js"></script>
+
+<script>
+  const socket = io("http://localhost:5000");
+  let typingTimeout;
+
+  socket.on("connect", () => {
+    console.log("Connected:", socket.id);
+  });
+
+  function formatTime(date) {
+    const d = new Date(date);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function joinRoom() {
+    const username = document.getElementById("username").value.trim();
+    const room = document.getElementById("room").value.trim();
+
+    if (!username || !room) {
+      alert("Enter username and room");
+      return;
+    }
+
+    document.getElementById("roomTitle").innerText = "Room: " + room;
+    document.getElementById("messages").innerHTML = "";
+
+    socket.emit("joinRoom", { username, room });
+  }
+
+  function sendMessage() {
+    const user = document.getElementById("username").value.trim();
+    const text = document.getElementById("message").value.trim();
+
+    if (!user || !text) return;
+
+    socket.emit("sendMessage", { user, text });
+
+    document.getElementById("message").value = "";
+    socket.emit("stopTyping");
+  }
+
+  function handleTyping() {
+    const username = document.getElementById("username").value;
+
+    socket.emit("typing", username);
+
+    clearTimeout(typingTimeout);
+
+    typingTimeout = setTimeout(() => {
+      socket.emit("stopTyping");
+    }, 1000);
+  }
+
+  // RECEIVE MESSAGE
+  socket.on("receiveMessage", (data) => {
+    const li = document.createElement("li");
+
+    li.innerHTML = `
+      ${data.user}: ${data.text}
+      <span class="time">(${formatTime(data.createdAt)})</span>
+    `;
+
+    const list = document.getElementById("messages");
+    list.appendChild(li);
+    list.scrollTop = list.scrollHeight;
+  });
+
+  // LOAD OLD MESSAGES
+  socket.on("loadMessages", (messages) => {
+    const list = document.getElementById("messages");
+    list.innerHTML = "";
+
+    messages.forEach(msg => {
+      const li = document.createElement("li");
+
+      li.innerHTML = `
+        ${msg.user}: ${msg.text}
+        <span class="time">(${formatTime(msg.createdAt)})</span>
+      `;
+
+      list.appendChild(li);
+    });
+  });
+
+  // USERS
+  socket.on("roomUsers", (users) => {
+    const userList = document.getElementById("users");
+    userList.innerHTML = "";
+
+    users.forEach(user => {
+      const li = document.createElement("li");
+      li.textContent = user;
+      userList.appendChild(li);
+    });
+  });
+
+  // TYPING
+  socket.on("typing", (username) => {
+    document.getElementById("typingStatus").innerText =
+      username + " is typing...";
+  });
+
+  socket.on("stopTyping", () => {
+    document.getElementById("typingStatus").innerText = "";
+  });
+</script>
+
+</body>
+</html>
