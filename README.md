@@ -1,6 +1,6 @@
 # 💬 Real-Time Chat Application (Task 4)
 
-This project is a real-time chat application built using **Node.js, Express, and Socket.io**.
+This project is a real-time chat application built using **Node.js, Express and Socket.io**.
 
 ## 🚀 Features
 
